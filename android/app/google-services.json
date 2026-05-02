@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "837663621817",
+    "project_id": "fitdiary-58fb1",
+    "storage_bucket": "fitdiary-58fb1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:837663621817:android:6362eeaf463ff6183fd168",
+        "android_client_info": {
+          "package_name": "com.example.data_persistence_networking_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRn4kRr7A81IUY0FkbCYDEGOi_W6FMnMg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

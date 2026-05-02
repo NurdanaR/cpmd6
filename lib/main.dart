@@ -1,45 +1,96 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as p;
+import 'package:data_persistence_networking_app/providers/fitness_provider.dart';
+
+import 'firebase_options.dart';
 import 'models/fitness_model.dart';
-import 'services/api_service.dart';
 import 'services/storage_service.dart';
 import 'screens/exercise_detail_screen.dart';
 
-class FitnessProvider extends ChangeNotifier {
-  final List<Food> _selectedFoods = [];
-  List<Food> get selectedFoods => _selectedFoods;
 
-  int get totalCalories => _selectedFoods.fold(0, (sum, item) => sum + item.calories);
-  double get totalProtein => _selectedFoods.fold(0.0, (sum, item) => sum + item.protein);
-  double get totalFat => _selectedFoods.fold(0.0, (sum, item) => sum + item.fat);
-  double get totalCarbs => _selectedFoods.fold(0.0, (sum, item) => sum + item.carbs);
+class FirestoreService {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  void toggleFood(Food food) {
-    if (_selectedFoods.contains(food)) {
-      _selectedFoods.remove(food);
-    } else {
-      _selectedFoods.add(food);
-    }
-    notifyListeners();
-  }
-
-  void clearFoods() {
-    _selectedFoods.clear();
-    notifyListeners();
-  }
-
-  Stream<int> get burnedCaloriesStream async* {
-    int burned = 0;
-    while (true) {
-      await Future.delayed(const Duration(seconds: 2));
-      burned += 1;
-      yield burned;
+  Future<List<Food>> fetchFoods() async {
+    try {
+      QuerySnapshot snapshot = await _db.collection('foods').get();
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return Food(
+          name: data['name'] ?? 'Unknown',
+          calories: data['calories'] ?? 0,
+          protein: (data['protein'] ?? 0).toDouble(),
+          fat: (data['fat'] ?? 0).toDouble(),
+          carbs: (data['carbs'] ?? 0).toDouble(),
+        );
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to load foods from Firestore: $e');
     }
   }
 }
 
-void main() {
+class LocalDbService {
+  static Database? _database;
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('favorites.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = p.join(dbPath, filePath);
+
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            imageUrl TEXT NOT NULL
+          )
+        ''');
+      },
+    );
+  }
+
+  Future<void> addFavorite(String title, String imageUrl) async {
+    final db = await database;
+    await db.insert(
+      'favorites',
+      {'title': title, 'imageUrl': imageUrl},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getFavorites() async {
+    final db = await database;
+    return await db.query('favorites');
+  }
+
+  Future<void> removeFavorite(int id) async {
+    final db = await database;
+    await db.delete('favorites', where: 'id = ?', whereArgs: [id]);
+  }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => FitnessProvider(),
@@ -59,6 +110,7 @@ class FitApp extends StatelessWidget {
     );
   }
 }
+
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -85,9 +137,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final fitnessProvider = Provider.of<FitnessProvider>(context);
+
     final List<Widget> _screens = [
       WorkoutTab(userName: _userName),
       NutritionTab(fitnessProvider: fitnessProvider),
+      const FavoritesTab(),
       ProfileTab(onNameChanged: _loadName),
     ];
 
@@ -114,18 +168,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         selectedItemColor: Colors.deepPurple,
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: "Workout"),
           BottomNavigationBarItem(icon: Icon(Icons.restaurant_menu), label: "Nutrition"),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favorites"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );
   }
 }
+
 
 class WorkoutTab extends StatefulWidget {
   final String userName;
@@ -190,38 +248,19 @@ class _WorkoutTabState extends State<WorkoutTab> {
       title: "Full Body",
       imgUrl: "https://i.ytimg.com/vi/wRgdl4SGWIw/maxresdefault.jpg",
       exercises: [
-        BlockExercise(
-            name: "Deadlifts",
-            imageUrl: "https://avatars.mds.yandex.net/i?id=9ea536440e21379e403d1f37e19f95701a590216-10810237-images-thumbs&n=13"
-        ),
-        BlockExercise(
-            name: "Push-ups",
-            imageUrl: "https://avatars.mds.yandex.net/i?id=ee49b4ed527f9e9772c2ba85b795b28d42a01979-13226847-images-thumbs&n=13"
-        ),
-        BlockExercise(
-            name: "Plank",
-            imageUrl: "https://avatars.mds.yandex.net/i?id=84e3146e4921616c68e3d8c1995a97926b485987-10121543-images-thumbs&n=13"
-        ),
+        BlockExercise(name: "Deadlifts", imageUrl: "https://avatars.mds.yandex.net/i?id=9ea536440e21379e403d1f37e19f95701a590216-10810237-images-thumbs&n=13"),
+        BlockExercise(name: "Push-ups", imageUrl: "https://avatars.mds.yandex.net/i?id=ee49b4ed527f9e9772c2ba85b795b28d42a01979-13226847-images-thumbs&n=13"),
+        BlockExercise(name: "Plank", imageUrl: "https://avatars.mds.yandex.net/i?id=84e3146e4921616c68e3d8c1995a97926b485987-10121543-images-thumbs&n=13"),
       ],
     ),
-
     WorkoutPlan(
       tag: "Block 4",
       title: "Back Day",
       imgUrl: "https://i.ytimg.com/vi/lcZJxl_ihyA/maxresdefault.jpg",
       exercises: [
-        BlockExercise(
-            name: "Lat Pulldowns",
-            imageUrl: "https://avatars.mds.yandex.net/i?id=106564aa5a9761e1c1f0f5dfbd51022c463191a573dc91dc-11956207-images-thumbs&n=13"
-        ),
-        BlockExercise(
-            name: "Seated Cable Rows",
-            imageUrl: "https://avatars.mds.yandex.net/i?id=c913bc7ee0852cad4f68a0687d11a1f5cfd29e14-7549525-images-thumbs&n=13"
-        ),
-        BlockExercise(
-            name: "Pull-ups",
-            imageUrl: "https://avatars.mds.yandex.net/i?id=b5606d4e207b1d40003b41317540a9c693a90623-10807537-images-thumbs&n=13"
-        ),
+        BlockExercise(name: "Lat Pulldowns", imageUrl: "https://avatars.mds.yandex.net/i?id=106564aa5a9761e1c1f0f5dfbd51022c463191a573dc91dc-11956207-images-thumbs&n=13"),
+        BlockExercise(name: "Seated Cable Rows", imageUrl: "https://avatars.mds.yandex.net/i?id=c913bc7ee0852cad4f68a0687d11a1f5cfd29e14-7549525-images-thumbs&n=13"),
+        BlockExercise(name: "Pull-ups", imageUrl: "https://avatars.mds.yandex.net/i?id=b5606d4e207b1d40003b41317540a9c693a90623-10807537-images-thumbs&n=13"),
       ],
     ),
   ];
@@ -304,7 +343,9 @@ class _WorkoutTabState extends State<WorkoutTab> {
 
 class BlockDetailScreen extends StatelessWidget {
   final WorkoutPlan plan;
-  const BlockDetailScreen({super.key, required this.plan});
+  final LocalDbService _dbService = LocalDbService();
+
+  BlockDetailScreen({super.key, required this.plan});
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +363,16 @@ class BlockDetailScreen extends StatelessWidget {
                 Image.network(ex.imageUrl, height: 200, width: double.infinity, fit: BoxFit.cover),
                 ListTile(
                   title: Text(ex.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.favorite_border, color: Colors.deepPurple),
+                    onPressed: () async {
+
+                      await _dbService.addFavorite(ex.name, ex.imageUrl);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("${ex.name} added to Favorites!")),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -333,6 +383,7 @@ class BlockDetailScreen extends StatelessWidget {
   }
 }
 
+
 class NutritionTab extends StatefulWidget {
   final FitnessProvider fitnessProvider;
   const NutritionTab({super.key, required this.fitnessProvider});
@@ -341,13 +392,13 @@ class NutritionTab extends StatefulWidget {
 }
 
 class _NutritionTabState extends State<NutritionTab> {
-  final ApiService _api = ApiService();
+  final FirestoreService _firestoreService = FirestoreService();
   late Future<List<Food>> _foodFuture;
 
   @override
   void initState() {
     super.initState();
-    _foodFuture = _api.fetchFood();
+    _foodFuture = _firestoreService.fetchFoods();
   }
 
   @override
@@ -374,28 +425,14 @@ class _NutritionTabState extends State<NutritionTab> {
                 ),
                 borderRadius: BorderRadius.circular(25),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
+                  BoxShadow(color: Colors.deepPurple.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
                 ],
               ),
               child: Column(
                 children: [
-                  const Text(
-                    "Daily Calorie Balance",
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
+                  const Text("Daily Calorie Balance", style: TextStyle(color: Colors.white70, fontSize: 16)),
                   const SizedBox(height: 10),
-                  Text(
-                    "$remaining kcal left",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text("$remaining kcal left", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 15),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -412,20 +449,14 @@ class _NutritionTabState extends State<NutritionTab> {
         Container(
           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
           margin: const EdgeInsets.symmetric(horizontal: 15),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _statWidget("Proteins", "${widget.fitnessProvider.totalProtein.toStringAsFixed(1)}g", Colors.blue),
               _statWidget("Fats", "${widget.fitnessProvider.totalFat.toStringAsFixed(1)}g", Colors.red),
               _statWidget("Carbs", "${widget.fitnessProvider.totalCarbs.toStringAsFixed(1)}g", Colors.green),
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.grey),
-                onPressed: () => widget.fitnessProvider.clearFoods(),
-              ),
+              IconButton(icon: const Icon(Icons.refresh, color: Colors.grey), onPressed: () => widget.fitnessProvider.clearFoods()),
             ],
           ),
         ),
@@ -435,8 +466,11 @@ class _NutritionTabState extends State<NutritionTab> {
             future: _foodFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError) return const Center(child: Text("Loading error"));
-              final foods = snapshot.data!;
+              if (snapshot.hasError) return Center(child: Text("Loading error: ${snapshot.error}"));
+
+              final foods = snapshot.data ?? [];
+              if (foods.isEmpty) return const Center(child: Text("No food found in Firestore."));
+
               return ListView.builder(
                 padding: const EdgeInsets.only(top: 10),
                 itemCount: foods.length,
@@ -480,14 +514,87 @@ class _NutritionTabState extends State<NutritionTab> {
       children: [
         Icon(icon, color: Colors.white70, size: 18),
         const SizedBox(width: 5),
-        Text(
-          "$label: $value",
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-        ),
+        Text("$label: $value", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
       ],
     );
   }
 }
+
+
+class FavoritesTab extends StatefulWidget {
+  const FavoritesTab({super.key});
+
+  @override
+  State<FavoritesTab> createState() => _FavoritesTabState();
+}
+
+class _FavoritesTabState extends State<FavoritesTab> {
+  final LocalDbService _dbService = LocalDbService();
+  List<Map<String, dynamic>> _favorites = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      final data = await _dbService.getFavorites();
+      setState(() {
+        _favorites = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Database Error: $e"), backgroundColor: Colors.red),
+      );
+      print("DATABASE ERROR: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    if (_favorites.isEmpty) {
+      return const Center(child: Text("No favorite exercises saved yet.", style: TextStyle(fontSize: 16, color: Colors.grey)));
+    }
+
+    return ListView.builder(
+      itemCount: _favorites.length,
+      itemBuilder: (context, index) {
+        final item = _favorites[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(10),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(item['imageUrl'], width: 60, height: 60, fit: BoxFit.cover),
+            ),
+            title: Text(item['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: () async {
+                await _dbService.removeFavorite(item['id']);
+                _loadFavorites();
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 
 class ProfileTab extends StatefulWidget {
   final VoidCallback onNameChanged;
