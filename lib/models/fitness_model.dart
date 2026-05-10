@@ -9,7 +9,13 @@ class Exercise {
 class BlockExercise {
   final String name;
   final String imageUrl;
-  BlockExercise({required this.name, required this.imageUrl});
+  final String? subtitle;
+
+  BlockExercise({
+    required this.name,
+    required this.imageUrl,
+    this.subtitle,
+  });
 }
 
 class WorkoutPlan {

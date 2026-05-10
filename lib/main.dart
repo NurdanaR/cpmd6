@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -39,6 +40,8 @@ class FirestoreService {
 class LocalDbService {
   static Database? _database;
 
+  static final List<Map<String, dynamic>> _webFavorites = [];
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('favorites.db');
@@ -65,6 +68,14 @@ class LocalDbService {
   }
 
   Future<void> addFavorite(String title, String imageUrl) async {
+    if (kIsWeb) {
+      _webFavorites.add({
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'title': title,
+        'imageUrl': imageUrl
+      });
+      return;
+    }
     final db = await database;
     await db.insert(
       'favorites',
@@ -230,8 +241,36 @@ class _WorkoutTabState extends State<WorkoutTab> {
       title: "Leg Day",
       imgUrl: "https://m.media-amazon.com/images/I/61xQsD1lVaL._AC_UF1000,1000_QL80_.jpg",
       exercises: [
-        BlockExercise(name: "Barbell Squats", imageUrl: "https://avatars.mds.yandex.net/i?id=5dc0bcc0727c965267afdf75be64b23a3e98745a-9229208-images-thumbs&n=13"),
-        BlockExercise(name: "Leg Press", imageUrl: "https://avatars.mds.yandex.net/i?id=a99884acea2ba733e0619609c438a562a159da2d-12938298-images-thumbs&n=13"),
+        BlockExercise(
+            name: "Barbell Squats",
+            subtitle: "4x12",
+            imageUrl: "https://avatars.mds.yandex.net/i?id=5dc0bcc0727c965267afdf75be64b23a3e98745a-9229208-images-thumbs&n=13"
+        ),
+        BlockExercise(
+            name: "Leg Press",
+            subtitle: "4x12",
+            imageUrl: "https://avatars.mds.yandex.net/i?id=a99884acea2ba733e0619609c438a562a159da2d-12938298-images-thumbs&n=13"
+        ),
+        BlockExercise(
+          name: "Seated Leg Abductions",
+          subtitle: "4x12",
+          imageUrl: "https://avatars.mds.yandex.net/i?id=488ad7ba5f8a2d33db120419ba6c67e3_l-9181330-images-thumbs&n=13",
+        ),
+        BlockExercise(
+          name: "Hamstring Curls",
+          subtitle: "4x12",
+          imageUrl: "https://avatars.mds.yandex.net/i?id=1d6854e4b3fe007335329776c8c132d00c6e0213-10026462-images-thumbs&n=13",
+        ),
+        BlockExercise(
+          name: "Leg Extensions",
+          subtitle: "4x12",
+          imageUrl: "https://i2.wp.com/training.fit/wp-content/uploads/2020/03/beinstrecken-geraet-1.png",
+        ),
+        BlockExercise(
+          name: "Seated Leg Adductions",
+          subtitle: "4x12",
+          imageUrl: "https://avatars.mds.yandex.net/i?id=f7d379fb6769a94cbe5bb111ec107d6c_l-10637415-images-thumbs&n=13",
+        ),
       ],
     ),
     WorkoutPlan(
@@ -363,6 +402,9 @@ class BlockDetailScreen extends StatelessWidget {
                 Image.network(ex.imageUrl, height: 200, width: double.infinity, fit: BoxFit.cover),
                 ListTile(
                   title: Text(ex.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: ex.subtitle != null
+                      ? Text(ex.subtitle!, style: const TextStyle(fontSize: 13, color: Colors.black))
+                      : null,
                   trailing: IconButton(
                     icon: const Icon(Icons.favorite_border, color: Colors.deepPurple),
                     onPressed: () async {
@@ -554,7 +596,7 @@ class _FavoritesTabState extends State<FavoritesTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Database Error: $e"), backgroundColor: Colors.red),
       );
-      print("DATABASE ERROR: $e");
+      //print("DATABASE ERROR: $e");
     }
   }
 
