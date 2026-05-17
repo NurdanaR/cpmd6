@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart';
 
 /// Gradient card showing daily calorie balance.
 class CalorieBalanceCard extends StatelessWidget {
@@ -8,18 +7,22 @@ class CalorieBalanceCard extends StatelessWidget {
     required this.remaining,
     required this.eaten,
     required this.burned,
+    required this.dailyGoal,
+    this.aiNote,
   });
 
   final int remaining;
   final int eaten;
   final int burned;
+  final int dailyGoal;
+  final String? aiNote;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: Container(
-        key: ValueKey(remaining),
+        key: ValueKey('$remaining-$dailyGoal'),
         width: double.infinity,
         margin: const EdgeInsets.all(15),
         padding: const EdgeInsets.all(20),
@@ -44,7 +47,7 @@ class CalorieBalanceCard extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'Daily Calorie Balance (goal ${AppConstants.dailyCalorieGoal})',
+              'Daily norm (AI): $dailyGoal kcal',
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
             const SizedBox(height: 10),
@@ -64,13 +67,20 @@ class CalorieBalanceCard extends StatelessWidget {
                 _chip('Burned', '$burned', Icons.local_fire_department),
               ],
             ),
+            if (aiNote != null && aiNote!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                aiNote!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  /// Builds a small stat row inside the card.
   Widget _chip(String label, String value, IconData icon) {
     return Row(
       children: [

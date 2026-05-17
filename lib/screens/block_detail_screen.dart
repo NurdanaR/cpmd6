@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/fitness_model.dart';
-import '../repositories/favorites_repository.dart';
 import '../widgets/exercise_network_image.dart';
+import '../widgets/favorite_toggle_button.dart';
+import 'workout_session_screen.dart';
 
-/// Lists exercises in a workout block with add-to-favorites action.
+/// Lists exercises in a workout block with favorite and workout actions.
 class BlockDetailScreen extends StatelessWidget {
-  BlockDetailScreen({super.key, required this.plan, FavoritesRepository? favorites})
-      : _favorites = favorites ?? FavoritesRepository();
+  const BlockDetailScreen({super.key, required this.plan});
 
   final WorkoutPlan plan;
-  final FavoritesRepository _favorites;
 
   @override
   Widget build(BuildContext context) {
@@ -28,16 +27,26 @@ class BlockDetailScreen extends StatelessWidget {
                 ListTile(
                   title: Text(ex.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: ex.subtitle != null ? Text(ex.subtitle!) : null,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.favorite_border),
-                    onPressed: () async {
-                      await _favorites.add(ex.name, ex.imageUrl);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${ex.name} added to Favorites')),
-                        );
-                      }
-                    },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Start workout',
+                        icon: Icon(Icons.play_circle_outline, color: Theme.of(context).colorScheme.primary),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => WorkoutSessionScreen(
+                                exerciseName: ex.name,
+                                imageUrl: ex.imageUrl,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      FavoriteToggleButton(title: ex.name, imageUrl: ex.imageUrl),
+                    ],
                   ),
                 ),
               ],

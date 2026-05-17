@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/fitness_model.dart';
 import '../widgets/exercise_network_image.dart';
+import 'workout_session_screen.dart';
 
 /// Lists exercises for a single muscle category.
 class ExerciseDetailScreen extends StatelessWidget {
@@ -30,6 +31,21 @@ class ExerciseDetailScreen extends StatelessWidget {
                 ListTile(
                   title: Text(ex.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(ex.instructions),
+                  trailing: FilledButton.tonalIcon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => WorkoutSessionScreen(
+                            exerciseName: ex.title,
+                            imageUrl: ex.imageUrl,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.play_arrow, size: 20),
+                    label: const Text('Start'),
+                  ),
                 ),
               ],
             ),

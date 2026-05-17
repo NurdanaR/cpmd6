@@ -1,23 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:data_persistence_networking_app/models/fitness_model.dart';
 import 'package:data_persistence_networking_app/repositories/food_repository.dart';
-import 'package:data_persistence_networking_app/services/api_service.dart';
 import 'package:data_persistence_networking_app/services/connectivity_service.dart';
-import 'package:data_persistence_networking_app/services/firestore_service.dart';
 import 'package:data_persistence_networking_app/services/food_cache_service.dart';
+import 'package:data_persistence_networking_app/services/food_remote_source.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _FakeFirestore extends FirestoreService {
-  _FakeFirestore(this._foods);
-  final List<Food> _foods;
-
-  @override
-  Future<List<Food>> fetchFoods() async => _foods;
-}
-
-class _FakeApi extends ApiService {
-  _FakeApi(this._foods);
-
+class _FakeRemote implements FoodRemoteSource {
+  _FakeRemote(this._foods);
   final List<Food> _foods;
 
   @override
@@ -46,8 +36,8 @@ void main() {
       Food(id: '1', name: 'Egg', calories: 70, protein: 6, fat: 5, carbs: 0.5),
     ];
     final repo = FoodRepository(
-      firestore: _FakeFirestore(foods),
-      api: _FakeApi([]),
+      firestore: _FakeRemote(foods),
+      api: _FakeRemote([]),
       connectivity: _OnlineConnectivity(),
     );
     final result = await repo.fetchFoods();
@@ -61,8 +51,8 @@ void main() {
       Food(id: 'c1', name: 'Cached', calories: 100, protein: 1, fat: 1, carbs: 1),
     ]);
     final repo = FoodRepository(
-      firestore: _FakeFirestore([]),
-      api: _FakeApi([]),
+      firestore: _FakeRemote([]),
+      api: _FakeRemote([]),
       cache: cache,
       connectivity: _OfflineConnectivity(),
     );

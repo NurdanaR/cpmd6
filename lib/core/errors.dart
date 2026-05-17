@@ -16,3 +16,9 @@ class DataLoadException extends AppException {
 class LocalStorageException extends AppException {
   const LocalStorageException(super.message);
 }
+
+/// Thrown when an action requires a signed-in user.
+class NotAuthenticatedException extends AppException {
+  const NotAuthenticatedException()
+      : super('Sign in to access your favorites.');
+}

@@ -41,10 +41,12 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.8.3
   firebase_core: ^4.7.0
+  firebase_auth: ^6.2.0
   cloud_firestore: ^6.3.0
   sqflite_common_ffi: ^2.3.3
   connectivity_plus: ^6.1.4
   cached_network_image: ^3.4.1
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -85,6 +87,7 @@ flutter:
 
   assets:
     - assets/images/
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:

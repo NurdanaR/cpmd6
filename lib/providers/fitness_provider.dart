@@ -1,90 +1,51 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../core/constants.dart';
-import '../models/fitness_model.dart';
-import '../services/storage_service.dart';
+import '../models/workout_session_log.dart';
+import '../repositories/user_data_repository.dart';
 
-/// ViewModel for nutrition selection, macros, and simulated calorie burn.
+/// Tracks and persists calories burned from completed workouts.
 class FitnessProvider extends ChangeNotifier {
-  FitnessProvider(this._storage);
+  FitnessProvider(this._userData);
 
-  final StorageService _storage;
-  final List<Food> _selectedFoods = [];
-  final Map<String, Food> _catalogById = {};
-  StreamSubscription<int>? _burnSub;
+  final UserDataRepository _userData;
   int _burnedCalories = 0;
 
-  List<Food> get selectedFoods => List.unmodifiable(_selectedFoods);
   int get burnedCalories => _burnedCalories;
 
-  int get totalCalories =>
-      _selectedFoods.fold(0, (sum, item) => sum + item.calories);
-
-  double get totalProtein =>
-      _selectedFoods.fold(0.0, (sum, item) => sum + item.protein);
-
-  double get totalFat =>
-      _selectedFoods.fold(0.0, (sum, item) => sum + item.fat);
-
-  double get totalCarbs =>
-      _selectedFoods.fold(0.0, (sum, item) => sum + item.carbs);
-
-  /// Simulated workout calorie burn stream for demo purposes.
-  Stream<int> get burnedCaloriesStream async* {
-    int burned = _burnedCalories;
-    while (true) {
-      await Future.delayed(AppConstants.calorieTickInterval);
-      burned += 1;
-      _burnedCalories = burned;
-      yield burned;
-    }
-  }
-
-  /// Registers catalog foods and restores persisted selection.
-  Future<void> bindCatalog(List<Food> catalog) async {
-    _catalogById
-      ..clear()
-      ..addEntries(catalog.map((f) => MapEntry(f.id, f)));
-
-    final savedIds = await _storage.loadSelectedFoodIds();
-    _selectedFoods
-      ..clear()
-      ..addAll(
-        savedIds
-            .map((id) => _catalogById[id])
-            .whereType<Food>(),
-      );
+  /// Loads burned total from Firestore / local storage.
+  Future<void> load() async {
+    _burnedCalories = await _userData.loadBurnedCalories();
     notifyListeners();
   }
 
-  /// Toggles food selection and persists ids.
-  Future<void> toggleFood(Food food) async {
-    if (_selectedFoods.contains(food)) {
-      _selectedFoods.remove(food);
-    } else {
-      _selectedFoods.add(food);
-    }
-    await _persistSelection();
-    notifyListeners();
-  }
+  /// Completes a workout: adds burned kcal and saves session log.
+  Future<int> completeWorkout({
+    required String exerciseName,
+    required double weightKg,
+    required int reps,
+    required int sets,
+    required int caloriesBurned,
+  }) async {
+    _burnedCalories += caloriesBurned;
+    await _userData.saveBurnedCalories(_burnedCalories);
 
-  /// Clears all selected foods.
-  Future<void> clearFoods() async {
-    _selectedFoods.clear();
-    await _persistSelection();
-    notifyListeners();
-  }
-
-  /// Saves selected food ids to SharedPreferences.
-  Future<void> _persistSelection() async {
-    await _storage.saveSelectedFoodIds(
-      _selectedFoods.map((f) => f.id).toList(),
+    final session = WorkoutSessionLog(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      exerciseName: exerciseName,
+      weightKg: weightKg,
+      reps: reps,
+      sets: sets,
+      caloriesBurned: caloriesBurned,
+      completedAt: DateTime.now(),
     );
+    await _userData.addWorkoutSession(session);
+    notifyListeners();
+    return caloriesBurned;
   }
 
-  @override
-  void dispose() {
-    _burnSub?.cancel();
-    super.dispose();
+  /// Resets burned calories counter.
+  Future<void> resetBurned() async {
+    _burnedCalories = 0;
+    await _userData.saveBurnedCalories(0);
+    notifyListeners();
   }
 }

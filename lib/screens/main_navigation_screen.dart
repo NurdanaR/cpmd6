@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/fitness_provider.dart';
+import '../providers/nutrition_provider.dart';
 import '../services/storage_service.dart';
 import 'favorites_tab.dart';
 import 'nutrition_tab.dart';
@@ -27,6 +28,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     super.initState();
     _storage = widget.storage ?? StorageService();
     _loadName();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NutritionProvider>().load();
+      context.read<FitnessProvider>().load();
+    });
   }
 
   /// Refreshes displayed user name from storage.
@@ -43,30 +48,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       WorkoutTab(userName: _userName),
       const NutritionTab(),
       const FavoritesTab(),
-      ProfileTab(onNameChanged: _loadName, storage: _storage),
+      ProfileTab(onNameChanged: _loadName),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Fit Diary: $_userName'),
         actions: [
-          StreamBuilder<int>(
-            stream: fitness.burnedCaloriesStream,
-            initialData: fitness.burnedCalories,
-            builder: (context, snapshot) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                  child: Text(
-                    '🔥 ${snapshot.data ?? 0} kcal',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.tertiary,
-                    ),
-                  ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                '🔥 ${fitness.burnedCalories} kcal',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.tertiary,
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),

@@ -4,12 +4,13 @@ import '../services/api_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/firestore_service.dart';
 import '../services/food_cache_service.dart';
+import '../services/food_remote_source.dart';
 
 /// Coordinates Firestore, REST API, and offline cache for nutrition data.
 class FoodRepository {
   FoodRepository({
-    FirestoreService? firestore,
-    ApiService? api,
+    FoodRemoteSource? firestore,
+    FoodRemoteSource? api,
     FoodCacheService? cache,
     ConnectivityService? connectivity,
   })  : _firestore = firestore ?? FirestoreService(),
@@ -17,8 +18,8 @@ class FoodRepository {
         _cache = cache ?? FoodCacheService(),
         _connectivity = connectivity ?? ConnectivityService();
 
-  final FirestoreService _firestore;
-  final ApiService _api;
+  final FoodRemoteSource _firestore;
+  final FoodRemoteSource _api;
   final FoodCacheService _cache;
   final ConnectivityService _connectivity;
 

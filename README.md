@@ -1,15 +1,15 @@
 # Fit Diary — Cross-Platform Mobile (Flutter)
 
 **Topic:** Fitness diary with workouts, nutrition tracking, and offline data sync.  
-**Stack:** Flutter · Provider (MVVM) · Firestore · REST · SQLite · SharedPreferences
+**Stack:** Flutter · Provider (MVVM) · Firebase Auth · Firestore · REST · SharedPreferences
 
 ## Team & goals (for presentation)
 
 | Item | Description |
 |------|-------------|
 | **Aim** | Help users track workouts, meals, and profile metrics on Android, iOS, Web, and desktop |
-| **Goals** | Multi-source nutrition data, local favorites, profile persistence, offline cache, dark theme |
-| **Architecture** | MVVM: **Views** (screens) → **ViewModels** (`FitnessProvider`, `ThemeProvider`) → **Repositories** → **Services** |
+| **Goals** | Auth per user, cloud favorites, nutrition sync, profile, offline cache, dark theme |
+| **Architecture** | MVVM: **Views** → **ViewModels** (`AuthProvider`, `FitnessProvider`, `ThemeProvider`) → **Repositories** → **Services** |
 
 ## Architecture (MVVM + Repository)
 
@@ -21,12 +21,17 @@ services/         → Firestore, REST API, SQLite, cache, connectivity
 models/           → Domain entities
 ```
 
-**Data sources**
+**Firebase roles**
 
-1. **Cloud Firestore** — `foods` collection (primary online)
-2. **REST API** — JSONPlaceholder fallback (`ApiService`)
-3. **SharedPreferences** — profile, theme, selected foods, food cache JSON
-4. **SQLite** — favorite exercises (in-memory on Web)
+| Service | Purpose |
+|---------|---------|
+| **Firebase Auth** | Email/password login; session per user |
+| **Cloud Firestore** | `foods` — nutrition catalog; `users/{uid}/favorites` — favorite workouts per account |
+
+**Other data**
+
+- **REST API** — JSONPlaceholder fallback for foods
+- **SharedPreferences** — profile, theme, selected foods, food cache
 
 ## Setup
 
@@ -37,8 +42,10 @@ flutter run -d chrome   # or android / ios / macos
 
 ### Firebase
 
-1. Create a Firebase project and enable Firestore.
-2. Add collection `foods` with documents:
+1. In [Firebase Console](https://console.firebase.google.com) → project `fitdiary-58fb1`:
+   - **Authentication** → Sign-in method → enable **Email/Password**
+   - **Firestore** → create database (test mode for development)
+2. Collection `foods` (nutrition catalog):
 
 | Field | Type |
 |-------|------|
@@ -48,7 +55,24 @@ flutter run -d chrome   # or android / ios / macos
 | fat | number |
 | carbs | number |
 
-3. Use FlutterFire CLI or existing `lib/firebase_options.dart` and platform config files.
+3. Favorites are stored per user at `users/{userId}/favorites/{docId}` with fields `title`, `imageUrl`, `createdAt`.
+4. Recommended Firestore rules (production):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /foods/{doc} {
+      allow read: if request.auth != null;
+    }
+    match /users/{userId}/favorites/{favoriteId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+5. Use existing `lib/firebase_options.dart` and platform config files.
 
 ### Without Firestore
 
@@ -58,7 +82,8 @@ The app falls back to REST API and cached data automatically.
 
 - Workout categories, plans carousel, exercise details
 - Nutrition with macros, calorie balance, persisted food selection
-- Favorites (SQLite / Web in-memory) with swipe-to-delete
+- **Login / Register** (Firebase Auth) — required to use the app
+- **Favorites** in Firestore per account, swipe-to-delete
 - Profile (name, height, weight) + dark theme
 - Offline banner and cached foods when offline
 - Cached network images, page transitions, animated UI
