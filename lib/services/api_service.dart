@@ -1,23 +1,28 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/constants.dart';
 import '../models/fitness_model.dart';
+import 'food_remote_source.dart';
 
-class ApiService {
-  final String _url = 'https://jsonplaceholder.typicode.com/posts';
+/// Fetches nutrition-like data from JSONPlaceholder REST API.
+class ApiService implements FoodRemoteSource {
+  ApiService({http.Client? client}) : _client = client ?? http.Client();
 
-  Future<List<Food>> fetchFood() async {
-    try {
-      final response = await http.get(Uri.parse(_url));
+  final http.Client _client;
+  static const String _url = 'https://jsonplaceholder.typicode.com/posts';
 
-      if (response.statusCode == 200) {
-        List<dynamic> data = json.decode(response.body);
+  /// Loads up to 15 food items mapped from remote posts.
+  @override
+  Future<List<Food>> fetchFoods() async {
+    final response = await _client
+        .get(Uri.parse(_url))
+        .timeout(AppConstants.networkTimeout);
 
-        return data.map((item) => Food.fromJson(item)).take(15).toList();
-      } else {
-        throw Exception('Server Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Network Error: $e');
+    if (response.statusCode != 200) {
+      throw Exception('Server error: ${response.statusCode}');
     }
+
+    final data = json.decode(response.body) as List<dynamic>;
+    return data.map((item) => Food.fromJson(item as Map<String, dynamic>)).take(15).toList();
   }
 }

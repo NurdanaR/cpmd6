@@ -1,36 +1,51 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import '../models/fitness_model.dart';
+import 'package:flutter/foundation.dart';
+import '../models/workout_session_log.dart';
+import '../repositories/user_data_repository.dart';
 
+/// Tracks and persists calories burned from completed workouts.
 class FitnessProvider extends ChangeNotifier {
-  final List<Food> _selectedFoods = [];
-  List<Food> get selectedFoods => _selectedFoods;
+  FitnessProvider(this._userData);
 
-  int get totalCalories => _selectedFoods.fold(0, (sum, item) => sum + item.calories);
-  double get totalProtein => _selectedFoods.fold(0.0, (sum, item) => sum + item.protein);
-  double get totalFat => _selectedFoods.fold(0.0, (sum, item) => sum + item.fat);
-  double get totalCarbs => _selectedFoods.fold(0.0, (sum, item) => sum + item.carbs);
+  final UserDataRepository _userData;
+  int _burnedCalories = 0;
 
-  void toggleFood(Food food) {
-    if (_selectedFoods.contains(food)) {
-      _selectedFoods.remove(food);
-    } else {
-      _selectedFoods.add(food);
-    }
+  int get burnedCalories => _burnedCalories;
+
+  /// Loads burned total from Firestore / local storage.
+  Future<void> load() async {
+    _burnedCalories = await _userData.loadBurnedCalories();
     notifyListeners();
   }
 
-  void clearFoods() {
-    _selectedFoods.clear();
+  /// Completes a workout: adds burned kcal and saves session log.
+  Future<int> completeWorkout({
+    required String exerciseName,
+    required double weightKg,
+    required int reps,
+    required int sets,
+    required int caloriesBurned,
+  }) async {
+    _burnedCalories += caloriesBurned;
+    await _userData.saveBurnedCalories(_burnedCalories);
+
+    final session = WorkoutSessionLog(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      exerciseName: exerciseName,
+      weightKg: weightKg,
+      reps: reps,
+      sets: sets,
+      caloriesBurned: caloriesBurned,
+      completedAt: DateTime.now(),
+    );
+    await _userData.addWorkoutSession(session);
     notifyListeners();
+    return caloriesBurned;
   }
 
-  Stream<int> get burnedCaloriesStream async* {
-    int burned = 0;
-    while (true) {
-      await Future.delayed(const Duration(seconds: 2));
-      burned += 1;
-      yield burned;
-    }
+  /// Resets burned calories counter.
+  Future<void> resetBurned() async {
+    _burnedCalories = 0;
+    await _userData.saveBurnedCalories(0);
+    notifyListeners();
   }
 }
