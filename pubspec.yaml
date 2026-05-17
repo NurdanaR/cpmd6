@@ -43,6 +43,7 @@ dependencies:
   firebase_core: ^4.7.0
   cloud_firestore: ^6.3.0
   sqflite_common_ffi: ^2.3.3
+  image_picker: ^1.2.2
 
 dev_dependencies:
   flutter_test:

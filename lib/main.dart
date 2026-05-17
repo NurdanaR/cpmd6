@@ -13,6 +13,8 @@ import 'firebase_options.dart';
 import 'models/fitness_model.dart';
 import 'services/storage_service.dart';
 import 'screens/exercise_detail_screen.dart';
+import 'package:image_picker/image_picker.dart';
+
 
 
 class FirestoreService {
@@ -652,6 +654,9 @@ class _ProfileTabState extends State<ProfileTab> {
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
 
+  File? _avatarImage;
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
@@ -668,16 +673,35 @@ class _ProfileTabState extends State<ProfileTab> {
     });
   }
 
+  Future<void> _getImageFromCamera() async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 50,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _avatarImage = File(pickedFile.path);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
-          const CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.deepPurple,
-              child: Icon(Icons.person, size: 50, color: Colors.white)
+          GestureDetector(
+            onTap: _getImageFromCamera,
+            child: CircleAvatar(
+              radius: 55,
+              backgroundColor: Colors.deepPurple.shade50,
+              backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
+              child: _avatarImage == null
+                  ? const Icon(Icons.camera_alt, size: 40, color: Colors.deepPurple)
+                  : null,
+            ),
           ),
           const SizedBox(height: 25),
 
