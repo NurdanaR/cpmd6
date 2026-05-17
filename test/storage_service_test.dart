@@ -9,6 +9,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  test('StorageService tracks onboarding completion', () async {
+    final storage = StorageService();
+    expect(await storage.isOnboardingComplete(), false);
+    await storage.setOnboardingComplete();
+    expect(await storage.isOnboardingComplete(), true);
+  });
+
   test('StorageService saves and loads profile', () async {
     final storage = StorageService();
     await storage.saveName('Alex');

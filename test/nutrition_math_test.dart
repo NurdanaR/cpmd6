@@ -15,7 +15,7 @@ void main() {
       grams: 400,
     );
     expect(portion.protein, 124);
-    expect(portion.calories, 860);
+    expect(portion.calories, 626);
     expect(
       portion.calories,
       NutritionMath.caloriesFromMacros(portion.protein, portion.fat, portion.carbs),

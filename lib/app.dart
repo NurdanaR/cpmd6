@@ -8,6 +8,7 @@ import 'providers/theme_provider.dart';
 import 'repositories/favorites_repository.dart';
 import 'repositories/user_data_repository.dart';
 import 'screens/auth_gate.dart';
+import 'screens/onboarding_gate.dart';
 import 'services/auth_service.dart';
 import 'services/storage_service.dart';
 
@@ -25,7 +26,7 @@ class FitApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: theme.themeMode,
-          home: const AuthGate(),
+          home: const OnboardingGate(child: AuthGate()),
         );
       },
     );

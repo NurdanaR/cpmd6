@@ -102,6 +102,18 @@ class StorageService {
     );
   }
 
+  /// True after the user finishes first-launch onboarding.
+  Future<bool> isOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(AppConstants.onboardingCompleteKey) ?? false;
+  }
+
+  /// Marks onboarding as finished (shown only once).
+  Future<void> setOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AppConstants.onboardingCompleteKey, true);
+  }
+
   /// Loads workout history newest first.
   Future<List<WorkoutSessionLog>> loadWorkoutHistory() async {
     final prefs = await SharedPreferences.getInstance();

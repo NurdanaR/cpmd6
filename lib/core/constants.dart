@@ -8,5 +8,6 @@ class AppConstants {
   static const String workoutHistoryKey = 'workout_history_json';
   static const String foodsCacheKey = 'cached_foods_json';
   static const String themeModeKey = 'theme_mode_dark';
+  static const String onboardingCompleteKey = 'onboarding_complete';
   static const Duration networkTimeout = Duration(seconds: 15);
 }
